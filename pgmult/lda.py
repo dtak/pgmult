@@ -489,5 +489,9 @@ class StickbreakingDynamicTopicsLDA(object):
         assert is_sorted(timeidx)
         return timeidx
 
+    def copy_sample(self):
+        new = copy.copy(self)
+        return new
+
 # TODO we probably want to operate around a uniform (or separately sampled) bias
 # point for psi. or maybe LDS should just learn a mean offset.

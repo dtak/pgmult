@@ -58,3 +58,6 @@ target/
 
 # data
 /data/names/namesbystate.zip
+
+# IDE
+.idea
