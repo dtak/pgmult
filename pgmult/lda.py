@@ -364,6 +364,7 @@ class LogisticNormalCorrelatedLDA(_LDABase):
 
 ###
 # Dynamic LDA Models (DTMs)
+#    * param_set[ 'use_init_beta' ] whether to use the initial betas 
 #    * param_set[ 'init_beta' ] contains the initial betas
 #    * param_set[ 'link_theta' ] will link thetas for patients with the same ids 
 ###
@@ -412,7 +413,7 @@ class StickbreakingDynamicTopicsLDA(object):
         # finale: added this to the initialization (must already be
         # correct size, do that in the top level file or as another
         # function in the top level file), not here 
-        if 'init_beta' in self.param_set:
+        if param_set[ 'use_init_beta' ]: 
             self.psi = pi_to_psi( param_set[ 'init_beta' ] )
         else:
             mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
