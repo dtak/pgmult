@@ -23,7 +23,6 @@ from pgmult.internals.utils import \
     initialize_polya_gamma_samplers, \
     initialize_pyrngs
 
-
 ###
 # Util
 ###
@@ -365,18 +364,37 @@ class LogisticNormalCorrelatedLDA(_LDABase):
 
 ###
 # Dynamic LDA Models (DTMs)
+#    * param_set[ 'init_beta' ] contains the initial betas
+#    * param_set[ 'link_theta' ] will link thetas for patients with the same ids 
 ###
 
 class StickbreakingDynamicTopicsLDA(object):
-    def __init__(self, data, timestamps, K, alpha_theta):
+    def __init__(self, data, timestamps, K, alpha_theta, patient_ids=None, param_set=None):
         assert isinstance(data, scipy.sparse.csr.csr_matrix)
         self.alpha_theta = alpha_theta
         self.D, self.V = data.shape
         self.K = K
 
+        # finale: added this line to take in param_set. note, at some
+        # point we may want more of the inputs to be taken in this
+        # way, to reduce potential issues with incorrectly ordering inputs 
+        self.param_set = param_set
+        
         self.data = data
 
         self.timestamps = timestamps
+
+        # finale: added these lines to take in patient_ids, the for
+        # loop can surely be made faster
+        self.link_theta = param_set[ 'link_theta' ]
+        if self.link_theta and patient_ids: 
+            self.patient_ids = patient_ids
+            self.multinote_patients = dict()
+            for patient_id in set( self.patient_ids ):
+                doc_ids = [i for i, x in enumerate( patient_ids ) if x == patient_id ]
+                if len( doc_ids ) > 1: 
+                    self.multinote_patients[ patient_id ] = doc_ids
+
         self.timeidx = self._get_timeidx(timestamps, data)
         self.T = self.timeidx.max() - self.timeidx.min() + 1
 
@@ -391,9 +409,15 @@ class StickbreakingDynamicTopicsLDA(object):
     def initialize_parameters(self):
         self.sigmasq_states = 0.1  # TODO make this learned, init from hypers
 
-        mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
-        self.psi = np.tile(mean_psi, (self.T, 1, self.K))
-
+        # finale: added this to the initialization (must already be
+        # correct size, do that in the top level file or as another
+        # function in the top level file), not here 
+        if 'init_beta' in self.param_set:
+            self.psi = pi_to_psi( param_set[ 'init_beta' ] )
+        else:
+            mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
+            self.psi = np.tile(mean_psi, (self.T, 1, self.K))
+        
         self.omega = np.zeros_like(self.psi)
 
         self.theta = sample_dirichlet(
@@ -427,6 +451,17 @@ class StickbreakingDynamicTopicsLDA(object):
         self.theta = sample_dirichlet(
             self.alpha_theta + self.doc_topic_counts, 'horiz')
 
+        # finale: added part for sampling the same theta for docs
+        # associated with the same patient (strong assumption!).
+        # note: this can probably be optimized once correctness and
+        # running has been established
+        if self.link_theta:
+            for patient_id in self.multinote_patients ):
+                doc_ids = self.multinote_patients[ patient_id ] 
+                my_theta = sample_dirichlet( self.alpha_theta +
+                    np.sum( self.doc_topic_counts( doc_ids , : ) , 0 ) , 'horiz' )
+                self.alpha_theta( doc_ids , : ) = my_theta 
+                
     def resample_beta(self):
         self.resample_omega()
         self.resample_psi()
