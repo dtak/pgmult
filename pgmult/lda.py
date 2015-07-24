@@ -388,13 +388,13 @@ class StickbreakingDynamicTopicsLDA(object):
         # finale: added these lines to take in patient_ids, the for
         # loop can surely be made faster
         self.link_theta = param_set[ 'link_theta' ]
-        if self.link_theta and patient_ids: 
+        if self.link_theta and patient_ids:
             self.patient_ids = patient_ids
             self.multinote_patients = dict()
             for patient_id in set( self.patient_ids ):
-                doc_ids = [i for i, x in enumerate( patient_ids ) if x == patient_id ]
-                if len( doc_ids ) > 1: 
-                    self.multinote_patients[ patient_id ] = doc_ids
+                doc_idx = [i for i, x in enumerate( patient_ids ) if x == patient_id ]
+                if len( doc_idx ) > 1:
+                    self.multinote_patients[ patient_id ] = doc_idx
 
         self.timeidx = self._get_timeidx(timestamps, data)
         self.T = self.timeidx.max() - self.timeidx.min() + 1
@@ -413,8 +413,8 @@ class StickbreakingDynamicTopicsLDA(object):
         # finale: added this to the initialization (must already be
         # correct size, do that in the top level file or as another
         # function in the top level file), not here 
-        if param_set[ 'use_init_beta' ]: 
-            self.psi = pi_to_psi( param_set[ 'init_beta' ] )
+        if self.param_set[ 'use_init_beta' ]:
+            self.psi = pi_to_psi( self.param_set[ 'init_beta' ] )
         else:
             mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
             self.psi = np.tile(mean_psi, (self.T, 1, self.K))
@@ -457,11 +457,11 @@ class StickbreakingDynamicTopicsLDA(object):
         # note: this can probably be optimized once correctness and
         # running has been established
         if self.link_theta:
-            for patient_id in self.multinote_patients ):
-                doc_ids = self.multinote_patients[ patient_id ] 
+            for patient_id in self.multinote_patients:
+                doc_idx = self.multinote_patients[ patient_id ]
                 my_theta = sample_dirichlet( self.alpha_theta +
-                    np.sum( self.doc_topic_counts( doc_ids , : ) , 0 ) , 'horiz' )
-                self.alpha_theta( doc_ids , : ) = my_theta 
+                    np.sum( self.doc_topic_counts[ doc_idx , : ] , 0 ) , 'horiz' )
+                self.alpha_theta[ doc_idx , : ] = my_theta
                 
     def resample_beta(self):
         self.resample_omega()
