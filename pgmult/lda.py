@@ -120,19 +120,22 @@ class _LDABase(object):
     def copy_sample(self):
         pass
 
-    def get_wordprobs(self, data):
-        return self.theta.dot(self.beta.T)[csr_nonzero(data)]
+    def get_wordprobs(self, data,theta=None):
+        if theta:
+            return theta.dot(self.beta.T)[csr_nonzero(data)]
+        else: 
+            return self.theta.dot(self.beta.T)[csr_nonzero(data)]
 
     def get_topicprobs(self, data):
         rows, cols = csr_nonzero(data)
         return normalize_rows(self.theta[rows] * self.beta[cols])
 
-    def log_likelihood(self, data=None):
+    def log_likelihood(self, data=None, theta=None):
         if data is not None:
-            return log_likelihood(data, self.get_wordprobs(data))
+            return log_likelihood(data, self.get_wordprobs(data,theta))
         else:
             # this version avoids recomputing the training gammalns
-            wordprobs = self.get_wordprobs(self.data)
+            wordprobs = self.get_wordprobs(self.data,theta)
             return np.sum(np.nan_to_num(np.log(wordprobs)) * self.data.data) \
                 + self._training_gammalns
 
