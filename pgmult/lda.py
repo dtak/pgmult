@@ -392,9 +392,9 @@ class StickbreakingDynamicTopicsLDA(object):
             self.patient_ids = patient_ids
             self.multinote_patients = dict()
             for patient_id in set( self.patient_ids ):
-                doc_indexes = [i for i, x in enumerate( patient_ids ) if x == patient_id ]
-                if len( doc_indexes ) > 1:
-                    self.multinote_patients[ patient_id ] = doc_indexes
+                doc_indices = [i for i, x in enumerate( patient_ids ) if x == patient_id ]
+                if len( doc_indices ) > 1:
+                    self.multinote_patients[ patient_id ] = doc_indices
 
         self.timeidx = self._get_timeidx(timestamps, data)
         self.T = self.timeidx.max() - self.timeidx.min() + 1
@@ -458,10 +458,10 @@ class StickbreakingDynamicTopicsLDA(object):
         # running has been established
         if self.link_theta:
             for patient_id in self.multinote_patients:
-                doc_indexes = self.multinote_patients[ patient_id ]
+                doc_indices = self.multinote_patients[ patient_id ]
                 my_theta = sample_dirichlet( self.alpha_theta +
-                    np.sum( self.doc_topic_counts[ doc_indexes , : ] , 0 ) , 'horiz' )
-                self.alpha_theta[ doc_indexes , : ] = my_theta
+                    np.sum( self.doc_topic_counts[ doc_indices , : ] , 0 ) , 'horiz' )
+                self.alpha_theta[ doc_indices , : ] = my_theta
                 
     def resample_beta(self):
         self.resample_omega()
