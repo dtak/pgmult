@@ -422,7 +422,7 @@ class StickbreakingDynamicTopicsLDA(object):
         # Need confirmation on whether double transpose below
         # results in desired behavior.
         if self.param_set['use_init_beta']:
-            np.array(map(lambda x: pi_to_psi(x.T).T, self.param_set['init_beta']))
+            self.psi = np.array(map(lambda x: pi_to_psi(x.T).T, self.param_set['init_beta']))
         else:
             mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
             self.psi = np.tile(mean_psi, (self.T, 1, self.K))
