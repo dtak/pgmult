@@ -415,9 +415,14 @@ class StickbreakingDynamicTopicsLDA(object):
 
         # finale: added this to the initialization (must already be
         # correct size, do that in the top level file or as another
-        # function in the top level file), not here 
-        if self.param_set[ 'use_init_beta' ]:
-            self.psi = pi_to_psi( self.param_set[ 'init_beta' ] )
+        # function in the top level file), not here
+        #
+        # Melih: pi_to_psi expects rows to be normalized
+        # and only takes arrays of size <= 2.
+        # Need confirmation on whether double transpose below
+        # results in desired behavior.
+        if self.param_set['use_init_beta']:
+            np.array(map(lambda x: pi_to_psi(x.T).T, self.param_set['init_beta']))
         else:
             mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
             self.psi = np.tile(mean_psi, (self.T, 1, self.K))
@@ -430,14 +435,14 @@ class StickbreakingDynamicTopicsLDA(object):
         self.z = np.zeros((self.data.data.shape[0], self.K), dtype='uint32')
         self.resample_z()
 
-    def log_likelihood(self, data=None):
+    def log_likelihood(self, data=None, theta=None):
         if data is not None:
             return log_likelihood(
                 data, self._get_wordprobs(
-                    data, self._get_timeidx(self.timestamps, data)))
+                    data, self._get_timeidx(self.timestamps, data), theta))
         else:
             # this version avoids recomputing the training gammalns
-            wordprobs = self._get_wordprobs(self.data, self.timeidx)
+            wordprobs = self._get_wordprobs(self.data, self.timeidx, theta)
             return np.sum(np.nan_to_num(np.log(wordprobs)) * self.data.data) \
                 + self._training_gammalns
 
@@ -518,9 +523,11 @@ class StickbreakingDynamicTopicsLDA(object):
         rows, cols = csr_nonzero(self.data)
         return normalize_rows(self.theta[rows] * self.beta[self.timeidx,cols])
 
-    def _get_wordprobs(self, data, timeidx):
+    def _get_wordprobs(self, data, timeidx, theta=None):
+        if theta is None:
+            theta = self.theta
         rows, cols = csr_nonzero(data)
-        return np.einsum('tk,tk->t',self.theta[rows],self.beta[timeidx, cols])
+        return np.einsum('tk,tk->t', theta[rows], self.beta[timeidx, cols])
 
     def _get_timeidx(self, timestamps, data):
         timeidx = np.repeat(
