@@ -368,7 +368,7 @@ class LogisticNormalCorrelatedLDA(_LDABase):
 ###
 
 class StickbreakingDynamicTopicsLDA(object):
-    def __init__(self, data, timestamps, K, alpha_theta):
+    def __init__(self, data, timestamps, K, alpha_theta, lda_model=None):
         assert isinstance(data, scipy.sparse.csr.csr_matrix)
         self.alpha_theta = alpha_theta
         self.D, self.V = data.shape
@@ -383,22 +383,44 @@ class StickbreakingDynamicTopicsLDA(object):
         self.ppgs = initialize_polya_gamma_samplers()
         self.pyrngs = initialize_pyrngs()
 
-        self.initialize_parameters()
-
         self._training_gammalns = \
             gammaln(data.sum(1)+1).sum() - gammaln(data.data+1).sum()
 
-    def initialize_parameters(self):
-        self.sigmasq_states = 0.1  # TODO make this learned, init from hypers
+        # Initialize the model parameters
+        self.initialize_parameters(lda_model=lda_model)
 
-        mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
-        self.psi = np.tile(mean_psi, (self.T, 1, self.K))
+    def initialize_parameters(self, lda_model=None):
+        """
+        Initialize the model with either a draw from the prior
+        or the parameters of a given LDA model
+        """
 
-        self.omega = np.zeros_like(self.psi)
+        # TODO make this learned, init from hypers
+        self.sigmasq_states = 0.1
 
-        self.theta = sample_dirichlet(
-            self.alpha_theta * np.ones((self.D, self.K)), 'horiz')
+        # Allocate auxiliary variables
+        self.omega = np.zeros((self.T, self.V-1, self.K))
 
+        # If LDA model is given, use it to initialize beta and theta
+        if lda_model:
+            assert isinstance(lda_model, _LDABase)
+            assert lda_model.D == self.D
+            assert lda_model.V == self.V
+            assert lda_model.K == self.K
+
+            self.beta = lda_model.beta
+            self.theta = lda_model.theta
+
+        else:
+            # Initialize beta to uniform and theta from prior
+            mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
+            self.psi = np.tile(mean_psi, (self.T, 1, self.K))
+
+
+            self.theta = sample_dirichlet(
+                self.alpha_theta * np.ones((self.D, self.K)), 'horiz')
+
+        # Sample topic-word assignments
         self.z = np.zeros((self.data.data.shape[0], self.K), dtype='uint32')
         self.resample_z()
 
@@ -416,6 +438,17 @@ class StickbreakingDynamicTopicsLDA(object):
     @property
     def beta(self):
         return psi_to_pi(self.psi, axis=1)
+
+    @beta.setter
+    def beta(self, value):
+        # Check that beta is the right shape.
+        # Broadcast along time dimension if necessary
+        if value.shape == (self.T, self.V, self.K):
+            self.psi = pi_to_psi(value, axis=1)
+        elif value.shape == (self.V, self.K):
+            self.psi = np.tile(pi_to_psi(self.psi, axis=0)[None,:,:], (self.T, 1, 1))
+        else:
+            raise NotImplementedError("beta must be TxVxK or VxK")
 
     def resample(self):
         self.resample_z()
