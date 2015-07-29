@@ -1,22 +1,57 @@
 import numpy as np
+np.random.seed(2)
+
 import matplotlib.pyplot as plt
 
 from pgmult.distributions import PGMultinomial
 from pgmult.internals.utils import compute_uniform_mean_psi, pi_to_psi, psi_to_pi
 
+from pybasicbayes.util.text import progprint_xrange
 
 def test_psi_pi_conversion():
-    K = 10
+    K = 10000
 
-    pi = np.ones(K) / float(K)
+    pi = np.random.dirichlet(0.1 * np.ones(K))
+    assert np.all(np.isfinite(pi))
+    # pi = np.ones(K) / float(K)
     psi = pi_to_psi(pi)
     pi2 = psi_to_pi(psi)
 
-    print "pi:  ", pi
-    print "psi: ", psi
-    print "pi2: ", pi2
+    # print "pi:  ", pi
+    # print "psi: ", psi
+    # print "pi2: ", pi2
 
     assert np.allclose(pi, pi2), "Mapping is not invertible."
+
+
+def test_psi_pi_conversion_2d():
+    K = 10000
+    M = 100
+
+    pi = np.random.dirichlet(0.1 * np.ones(K), size=M)
+    assert np.all(np.isfinite(pi))
+
+    psi_a = pi_to_psi(pi)
+    psi_b = pi_to_psi(pi, axis=1)
+    assert np.allclose(psi_a, psi_b)
+
+    pi_a = psi_to_pi(psi_a)
+    pi_b = psi_to_pi(psi_b, axis=1)
+    assert np.allclose(pi_a, pi_b, atol=1e-7)
+    assert np.allclose(pi_a, pi, atol=1e-7)
+
+
+def test_psi_pi_conversion_3d():
+    K = 10
+    M = 10
+
+    pi = np.random.dirichlet(0.1 * np.ones(K), size=(M,M))
+    assert pi.shape == (M,M,K)
+    assert np.all(np.isfinite(pi))
+
+    psi = pi_to_psi(pi, axis=2)
+    pi2 = psi_to_pi(psi, axis=2)
+    assert np.allclose(pi2, pi, atol=1e-7)
 
 def test_pgm_rvs():
     K = 10
@@ -125,8 +160,12 @@ def test_block_correlated_pgm_rvs():
     Sigma = np.kron(Sblocks,np.eye(3))
     test_correlated_pgm_rvs(Sigma)
 
-# test_psi_pi_conversion()
+for itr in progprint_xrange(1000):
+    # test_psi_pi_conversion()
+    # test_psi_pi_conversion_2d()
+    test_psi_pi_conversion_3d()
+
 # test_pgm_rvs()
 # test_chain_correlated_pgm_rvs()
-test_wishart_correlated_pgm_rvs(K=10)
+# test_wishart_correlated_pgm_rvs(K=10)
 # test_block_correlated_pgm_rvs()

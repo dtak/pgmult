@@ -134,36 +134,62 @@ def psi_to_pi(psi, axis=None):
 
     return pi
 
-def pi_to_psi(pi):
+def pi_to_psi(pi, axis=None):
     """
     Convert probability vector pi to a vector psi
     :param pi:      Length K probability vector
     :return:        Length K-1 transformed vector psi
     """
-    if pi.ndim == 1:
-        K = pi.size
-        assert np.allclose(pi.sum(), 1.0)
-        psi = np.zeros(K-1)
+    if axis is None:
+        if pi.ndim == 1:
+            K = pi.size
+            assert np.allclose(pi.sum(), 1.0)
+            pi = pi / (pi.sum() + 1e-8)
+            psi = np.zeros(K-1)
 
-        stick = 1.0
-        for k in range(K-1):
-            psi[k] = logit(pi[k] / stick)
-            stick -= pi[k]
+            stick = 1.0
+            for k in range(K-1):
+                psi[k] = logit(pi[k] / stick)
+                stick -= pi[k]
 
-        # DEBUG
-        assert np.allclose(stick, pi[-1])
-    elif pi.ndim == 2:
-        M, K = pi.shape
-        assert np.allclose(pi.sum(axis=1), 1.0)
-        psi = np.zeros((M,K-1))
+            # DEBUG
+            assert np.allclose(stick, pi[-1], atol=1e-7)
 
-        stick = np.ones(M)
-        for k in range(K-1):
-            psi[:,k] = logit(pi[:,k] / stick)
-            stick -= pi[:,k]
-        assert np.allclose(stick, pi[:,-1])
+        elif pi.ndim == 2:
+            M, K = pi.shape
+            assert np.allclose(pi.sum(axis=1), 1.0)
+            pi = pi / (pi.sum(axis=1, keepdims=True) + 1e-8)
+            psi = np.zeros((M,K-1))
+
+            stick = np.ones(M)
+            for k in range(K-1):
+                psi[:,k] = logit(pi[:,k] / stick)
+                stick -= pi[:,k]
+            assert np.allclose(stick, pi[:,-1], atol=1e-7)
+
+        else:
+            raise ValueError("psi must be 1 or 2D")
+
     else:
-        raise NotImplementedError
+        K = pi.shape[axis]
+
+        # Normalize pi with slack along specified axis
+        assert np.allclose(pi.sum(axis=axis), 1.0)
+        pi = pi / (pi.sum(axis=axis, keepdims=True) + 1e-8)
+
+        # Initialize psi and stick
+        psi  = np.zeros([pi.shape[dim] if dim != axis else K-1 for dim in range(pi.ndim)])
+        stick = np.squeeze(np.ones([pi.shape[dim] if dim != axis else 1   for dim in range(pi.ndim)]))
+
+        for k in range(K-1):
+            inds = [slice(None) if dim != axis else k for dim in range(psi.ndim)]
+            psi[inds] = logit(pi[inds] / stick)
+            stick -= pi[inds]
+
+        inds = [slice(None) if dim != axis else -1 for dim in range(psi.ndim)]
+        assert np.allclose(stick, pi[inds], atol=1e-7)
+
+    assert np.all(np.isfinite(psi))
 
     return psi
 
