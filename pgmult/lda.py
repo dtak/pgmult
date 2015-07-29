@@ -446,7 +446,7 @@ class StickbreakingDynamicTopicsLDA(object):
         if value.shape == (self.T, self.V, self.K):
             self.psi = pi_to_psi(value, axis=1)
         elif value.shape == (self.V, self.K):
-            self.psi = np.tile(pi_to_psi(self.psi, axis=0)[None,:,:], (self.T, 1, 1))
+            self.psi = np.tile(pi_to_psi(value, axis=0)[None,:,:], (self.T, 1, 1))
         else:
             raise NotImplementedError("beta must be TxVxK or VxK")
 

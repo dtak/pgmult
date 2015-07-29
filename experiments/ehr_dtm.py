@@ -1,15 +1,10 @@
 from __future__ import division
 import numpy as np
 import time
-import re
-import os
-import operator
 import cPickle as pickle
-import dateutil
-from urllib2 import urlopen
 from collections import namedtuple
 
-from pybasicbayes.util.text import progprint, progprint_xrange
+from pybasicbayes.util.text import progprint_xrange
 
 from ctm import split_test_train
 from pgmult.lda import *
@@ -50,7 +45,6 @@ class ElectronicHealthRecordDTM(StickbreakingDynamicTopicsLDA):
 
         # If LDA model is given, use it to initialize beta and theta
         if lda_model:
-            assert isinstance(lda_model, _LDABase)
             assert lda_model.D == self.D
             assert lda_model.V == self.V
             assert lda_model.K == self.K
@@ -107,6 +101,57 @@ class ForumAndEHRDTM(ElectronicHealthRecordDTM):
         assert doc_types.shape == (self.D,) and np.dtype(doc_types) == np.int\
                and np.amin(doc_types) == 0 and np.amax(doc_types) == 1
         self.doc_types = doc_types
+
+    def initialize_parameters(self, lda_model=None):
+        """
+        Initialize the model with
+        :param lda_model:
+        :return:
+        """
+        # TODO make these learned, init from hypers
+        self.sigmasq_states = 0.1
+        self.sigmasq_obs = 0.1
+
+        # Allocate auxiliary variables
+        self.omega_ehr = np.zeros((self.T, self.V-1, self.K))
+        self.omega_forum = np.zeros((self.T, self.V-1, self.K))
+
+        # If LDA model is given, use it to initialize beta and theta
+        if lda_model:
+            assert lda_model.D == self.D
+            assert lda_model.V == self.V
+            assert lda_model.K == self.K
+
+            # Set latent states u to lda_model's beta.
+            # Initialize psi_ehr and psi_forum to be noise free
+            self.u = np.tile(pi_to_psi(lda_model.beta, axis=0)[None,:,:], (self.T, 1, 1))
+            self.psi_ehr = self.u.copy()
+            self.psi_forum = self.u.copy()
+
+            # Share the topic distributions among documents
+            # belonging to the same patient
+            for pid in self.unique_patient_ids:
+                patient_theta = \
+                    np.mean(lda_model.theta[self.patient_ids==pid], axis=0)
+                assert np.allclose(patient_theta.sum(), 1.0)
+                self.theta[self.patient_ids==pid] = patient_theta
+
+        else:
+            # Initialize beta to uniform and theta from prior
+            mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
+            self.u = np.tile(mean_psi, (self.T, 1, self.K))
+            self.psi_ehr = self.u + np.sqrt(self.sigmasq_obs) * np.random.randn(self.T, self.V-1, self.K)
+            self.psi_forum = self.u + np.sqrt(self.sigmasq_obs) * np.random.randn(self.T, self.V-1, self.K)
+
+            self.theta = np.zeros((self.D, self.K))
+            for pid in self.unique_patient_ids:
+                self.theta[self.patient_ids==pid] = \
+                    np.random.dirichlet(self.alpha_theta * np.ones(self.K))
+
+        # Sample topic-word assignments
+        self.z = np.zeros((self.data.data.shape[0], self.K), dtype='uint32')
+        self.resample_z()
+
 
     @property
     def beta(self):
@@ -220,7 +265,7 @@ Results = namedtuple(
     'Results', ['loglikes', 'predictive_lls', 'samples', 'timestamps'])
 
 
-def fit_sbdtm_gibbs(train_data, test_data, timestamps, K, Niter, alpha_theta):
+def fit_ehrdtm_gibbs(train_data, test_data, timestamps, K, Niter, alpha_theta, patient_ids):
     def evaluate(model):
         ll, pll = \
             model.log_likelihood(), \
@@ -234,8 +279,8 @@ def fit_sbdtm_gibbs(train_data, test_data, timestamps, K, Niter, alpha_theta):
         timestep = time.time() - tic
         return evaluate(model), timestep
 
-    print 'Running sbdtm gibbs...'
-    model = StickbreakingDynamicTopicsLDA(train_data, timestamps, K, alpha_theta)
+    print 'Running ehr dtm (no doc types)...'
+    model = ElectronicHealthRecordDTM(train_data, timestamps, K, alpha_theta, patient_ids)
     init_val = evaluate(model)
     vals, timesteps = zip(*[sample(model) for _ in progprint_xrange(Niter)])
 
@@ -269,10 +314,11 @@ if __name__ == '__main__':
     train_data, test_data = split_test_train(data, train_frac=train_frac, test_frac=test_frac)
 
     ## fit
-    sb_results = fit_sbdtm_gibbs(train_data, test_data, timestamps, K, 100, alpha_theta)
+    # TODO: Fit a standard LDA model and pass it into the initialization inside this function
+    ehrdtm_results = fit_ehrdtm_gibbs(train_data, test_data, timestamps, K, 100, alpha_theta, patient_ids)
 
     all_results = {
-        'sb': sb_results,
+        'ehrdtm': ehrdtm_results,
     }
 
     with open('dtm_results.pkl','w') as outfile:
