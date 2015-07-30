@@ -406,7 +406,7 @@ class StickbreakingDynamicTopicsLDA(object):
             assert isinstance(lda_model, _LDABase)
             assert lda_model.D == self.D
             assert lda_model.V == self.V
-            assert lda_model.K == self.K
+            assert lda_model.T == self.K
 
             self.beta = lda_model.beta
             self.theta = lda_model.theta
