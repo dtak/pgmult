@@ -121,7 +121,7 @@ class _LDABase(object):
         pass
 
     def get_wordprobs(self, data,theta=None):
-        if theta:
+        if theta is None:
             return theta.dot(self.beta.T)[csr_nonzero(data)]
         else: 
             return self.theta.dot(self.beta.T)[csr_nonzero(data)]
@@ -132,7 +132,7 @@ class _LDABase(object):
 
     def log_likelihood(self, data=None, theta=None):
         if data is not None:
-            return log_likelihood(data, self.get_wordprobs(data,theta))
+            return log_likelihood(data, self.get_wordprobs(data, theta))
         else:
             # this version avoids recomputing the training gammalns
             wordprobs = self.get_wordprobs(self.data,theta)
@@ -390,14 +390,14 @@ class StickbreakingDynamicTopicsLDA(object):
 
         # finale: added these lines to take in patient_ids, the for
         # loop can surely be made faster
-        self.link_theta = param_set[ 'link_theta' ]
+        self.link_theta = param_set['link_theta']
         if self.link_theta and patient_ids:
             self.patient_ids = patient_ids
             self.multinote_patients = dict()
-            for patient_id in set( self.patient_ids ):
-                doc_indices = [i for i, x in enumerate( patient_ids ) if x == patient_id ]
-                if len( doc_indices ) > 1:
-                    self.multinote_patients[ patient_id ] = doc_indices
+            for patient_id in set(self.patient_ids):
+                doc_indices = [i for i, x in enumerate(patient_ids) if x == patient_id]
+                if len(doc_indices) > 1:
+                    self.multinote_patients[patient_id] = np.array(doc_indices)
 
         self.timeidx = self._get_timeidx(timestamps, data)
         self.T = self.timeidx.max() - self.timeidx.min() + 1
@@ -422,7 +422,7 @@ class StickbreakingDynamicTopicsLDA(object):
         # Need confirmation on whether double transpose below
         # results in desired behavior.
         if self.param_set['use_init_beta']:
-            self.psi = np.array(map(lambda x: pi_to_psi(x.T).T, self.param_set['init_beta']))
+              self.psi = np.array(map(lambda x: pi_to_psi(x.T).T, self.param_set['init_beta']))
         else:
             mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
             self.psi = np.tile(mean_psi, (self.T, 1, self.K))
@@ -466,10 +466,10 @@ class StickbreakingDynamicTopicsLDA(object):
         # running has been established
         if self.link_theta:
             for patient_id in self.multinote_patients:
-                doc_indices = self.multinote_patients[ patient_id ]
-                my_theta = sample_dirichlet( self.alpha_theta +
-                    np.sum( self.doc_topic_counts[ doc_indices , : ] , 0 ) , 'horiz' )
-                self.alpha_theta[ doc_indices , : ] = my_theta
+                doc_indices = self.multinote_patients[patient_id]
+                my_theta = sample_dirichlet(self.alpha_theta +
+                    np.sum(self.doc_topic_counts[doc_indices, :], 0), 'horiz')
+                self.theta[doc_indices, :] = my_theta
                 
     def resample_beta(self):
         self.resample_omega()
