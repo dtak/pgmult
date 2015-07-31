@@ -368,7 +368,7 @@ class LogisticNormalCorrelatedLDA(_LDABase):
 ###
 
 class StickbreakingDynamicTopicsLDA(object):
-    def __init__(self, data, timestamps, K, alpha_theta, lda_model=None):
+    def __init__(self, data, timestamps, K, alpha_theta, lda_model=None, **xargs):
         assert isinstance(data, scipy.sparse.csr.csr_matrix)
         self.alpha_theta = alpha_theta
         self.D, self.V = data.shape
