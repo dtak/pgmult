@@ -399,7 +399,7 @@ class StickbreakingDynamicTopicsLDA(object):
 
         # TODO make this learned, init from hypers
         self.sigmasq_states = 0.0001
-        self.sigmasq_obs = 0.1
+        self.sigmasq_obs = 0.
 
         # Allocate auxiliary variables
         self.omega = np.zeros((self.T, self.V-1, self.K))
