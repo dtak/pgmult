@@ -398,8 +398,8 @@ class StickbreakingDynamicTopicsLDA(object):
         """
 
         # TODO make this learned, init from hypers
-        self.sigmasq_states = 0.1
-        self.sigmasq_obs = 0.
+        self.sigmasq_states = 0.0001
+        self.sigmasq_obs = 0.1
 
         # Allocate auxiliary variables
         self.omega = np.zeros((self.T, self.V-1, self.K))
@@ -494,6 +494,10 @@ class StickbreakingDynamicTopicsLDA(object):
         mu_uniform, sigma_uniform = compute_uniform_mean_psi(self.V)
         mu_init = np.tile(mu_uniform, self.K)
         sigma_init = np.tile(np.diag(sigma_uniform), self.K)
+
+        # TODO replace above lines with just these
+        mu_init = np.zeros_like(mu_init)
+        sigma_init = self.sigmasq_states * np.ones_like(sigma_init)
 
         sigma_states = np.repeat(self.sigmasq_states, (self.V - 1) * self.K)
 
