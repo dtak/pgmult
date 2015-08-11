@@ -399,6 +399,7 @@ class StickbreakingDynamicTopicsLDA(object):
 
         # TODO make this learned, init from hypers
         self.sigmasq_states = 0.1
+        self.sigmasq_obs = 0.
 
         # Allocate auxiliary variables
         self.omega = np.zeros((self.T, self.V-1, self.K))
@@ -412,12 +413,10 @@ class StickbreakingDynamicTopicsLDA(object):
 
             self.beta = lda_model.beta
             self.theta = lda_model.theta
-
         else:
             # Initialize beta to uniform and theta from prior
             mean_psi = compute_uniform_mean_psi(self.V)[0][None,:,None]
             self.psi = np.tile(mean_psi, (self.T, 1, self.K))
-
 
             self.theta = sample_dirichlet(
                 self.alpha_theta * np.ones((self.D, self.K)), 'horiz')
@@ -439,7 +438,7 @@ class StickbreakingDynamicTopicsLDA(object):
 
     @property
     def beta(self):
-        return psi_to_pi(self.psi, axis=1)
+        return psi_to_pi(self.offset + self.psi, axis=1)
 
     @beta.setter
     def beta(self, value):
@@ -448,7 +447,9 @@ class StickbreakingDynamicTopicsLDA(object):
         if value.shape == (self.T, self.V, self.K):
             self.psi = pi_to_psi(value, axis=1)
         elif value.shape == (self.V, self.K):
-            self.psi = np.tile(pi_to_psi(value, axis=0)[None,:,:], (self.T, 1, 1))
+            self.offset = np.tile(
+                pi_to_psi(value, axis=0)[None,:,:], (self.T, 1, 1))
+            self.psi = np.zeros((self.T, self.V-1, self.K))
         else:
             raise NotImplementedError("beta must be TxVxK or VxK")
 
@@ -496,8 +497,9 @@ class StickbreakingDynamicTopicsLDA(object):
 
         sigma_states = np.repeat(self.sigmasq_states, (self.V - 1) * self.K)
 
-        sigma_obs = 1./self.omega
-        y = kappa_vec(self.time_word_topic_counts, axis=1) / self.omega
+        sigma_obs = 1./self.omega + self.sigmasq_obs
+        y = kappa_vec(self.time_word_topic_counts, axis=1) / self.omega \
+            - self.offset
 
         return mu_init, sigma_init, sigma_states, \
             sigma_obs.reshape(y.shape[0], -1), y.reshape(y.shape[0], -1)
