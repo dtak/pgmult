@@ -407,7 +407,6 @@ class StickbreakingDynamicTopicsLDA(object):
 
         # If LDA model is given, use it to initialize beta and theta
         if lda_model:
-            assert isinstance(lda_model, _LDABase)
             assert lda_model.D == self.D
             assert lda_model.V == self.V
             assert lda_model.T == self.K
