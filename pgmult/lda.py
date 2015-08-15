@@ -370,7 +370,12 @@ class LogisticNormalCorrelatedLDA(_LDABase):
 ###
 
 class StickbreakingDynamicTopicsLDA(object):
-    def __init__(self, data, timestamps, K, alpha_theta, lda_model=None, **xargs):
+    def __init__(self, data, timestamps, K, alpha_theta, lda_model=None,
+                 sigmasq_states=0.1, **xargs):
+
+        # TODO make these learned, init from hypers
+        self.sigmasq_states = sigmasq_states
+
         assert isinstance(data, scipy.sparse.csr.csr_matrix)
         self.alpha_theta = alpha_theta
         self.D, self.V = data.shape
@@ -396,9 +401,6 @@ class StickbreakingDynamicTopicsLDA(object):
         Initialize the model with either a draw from the prior
         or the parameters of a given LDA model
         """
-
-        # TODO make this learned, init from hypers
-        self.sigmasq_states = 0.1
 
         # Allocate auxiliary variables
         self.omega = np.zeros((self.T, self.V-1, self.K))
