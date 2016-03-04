@@ -68,7 +68,8 @@ def is_sorted(a):
 
 
 def timeindices_from_timestamps(timestamps):
-    return np.array(timestamps) - timestamps[0]
+    timeidx = np.array( timestamps ) - np.min( timestamps )  
+    return timeidx.astype( int ) 
 
 
 ###
@@ -152,7 +153,7 @@ class _LDABase(object):
         self.beta = sample_dirichlet(
             self.alpha_beta + self.word_topic_counts, 'v')
 
-    def resample_z(self):
+    def resample_z(self):        
         topicprobs = self.get_topicprobs(self.data)
         multinomial_par(self.pyrngs, self.data.data, topicprobs, self.z)
         self._update_counts()
@@ -475,7 +476,7 @@ class StickbreakingDynamicTopicsLDA(object):
         self.psi = psi_flat.reshape(self.psi.shape)
 
     def resample_z(self):
-        topicprobs = self._get_topicprobs()
+        topicprobs = self._get_topicprobs()        
         multinomial_par(self.pyrngs, self.data.data, topicprobs, self.z)
         self._update_counts()
 
@@ -522,9 +523,10 @@ class StickbreakingDynamicTopicsLDA(object):
         return np.einsum('tk,tk->t', theta[rows], self.beta[timeidx, cols])
 
     def _get_timeidx(self, timestamps, data):
+
+        # timeidx is the index of each *word* 
         timeidx = np.repeat(
             timeindices_from_timestamps(timestamps), np.diff(data.indptr))
-        assert is_sorted(timeidx)
         return timeidx
 
     def copy_sample(self):
